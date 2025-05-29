@@ -1,43 +1,65 @@
-(async function () {
-    function a(d) {
-        const e = new MouseEvent('click', {
-            'view': window,
-            'bubbles': !![],
-            'cancelable': !![]
+(async function() {
+    // Helper function to click elements
+    function clickElement(element) {
+        const clickEvent = new MouseEvent('click', {
+            view: window,
+            bubbles: true,
+            cancelable: true
         });
-        d['dispatchEvent'](e), setTimeout(() => {
-            d['click']();
-        }, 0x1f4);
-    }
-    function b() {
+        element.dispatchEvent(clickEvent);
+        // Double-click attempt for reliability
         setTimeout(() => {
-            window['location']['href'] = 'https://hiring.amazon.ca/app#/jobSearch';
-        }, 0x2710);
+            element.click();
+        }, 500);
     }
-    const c = new MutationObserver(() => {
-        const d = document['querySelectorAll']('button');
-        d['forEach'](f => {
-            const g = f['querySelector']('div[data-test-component=\x22StencilReactRow\x22]')?.['textContent']?.['trim']();
-            if (g === 'Next') {
-                a(f), c['disconnect'](), setTimeout(() => {
-                    const h = [...document['querySelectorAll']('button')]['find'](i => i['querySelector']('div[data-test-component=\x22StencilReactRow\x22]')?.['textContent']?.['trim']() === 'Create\x20Application');
-                    if (h)
-                        a(h), c['disconnect'](), b();
-                    else {
+
+    // Function to redirect back to job search after completion
+    function redirectToJobSearch() {
+        setTimeout(() => {
+            window.location.href = 'https://hiring.amazon.ca/app#/jobSearch';
+        }, 10000);
+    }
+
+    // Main observer to handle the application process
+    const observer = new MutationObserver(() => {
+        // Look for the Next button
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(button => {
+            const buttonText = button.querySelector('div[data-test-component="StencilReactRow"]')?.textContent?.trim();
+            
+            if (buttonText === 'Next') {
+                clickElement(button);
+                observer.disconnect();
+                
+                // After clicking Next, wait for Create Application button
+                setTimeout(() => {
+                    const createAppButton = [...document.querySelectorAll('button')]
+                        .find(btn => btn.querySelector('div[data-test-component="StencilReactRow"]')?.textContent?.trim() === 'Create Application');
+                    
+                    if (createAppButton) {
+                        clickElement(createAppButton);
+                        observer.disconnect();
+                        redirectToJobSearch();
                     }
-                }, 0x7d0);
+                }, 2000);
                 return;
-            } else {
             }
         });
-        const e = [...document['querySelectorAll']('button')]['find'](f => f['querySelector']('div[data-test-component=\x22StencilReactRow\x22]')?.['textContent']?.['trim']() === 'Create\x20Application');
-        if (e)
-            a(e), c['disconnect'](), b();
-        else {
+
+        // Direct check for Create Application button
+        const createAppButton = [...document.querySelectorAll('button')]
+            .find(btn => btn.querySelector('div[data-test-component="StencilReactRow"]')?.textContent?.trim() === 'Create Application');
+        
+        if (createAppButton) {
+            clickElement(createAppButton);
+            observer.disconnect();
+            redirectToJobSearch();
         }
     });
-    c['observe'](document['body'], {
-        'childList': !![],
-        'subtree': !![]
+
+    // Start observing the DOM for changes
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
     });
-}());
+})();
