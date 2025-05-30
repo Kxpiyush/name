@@ -1,7 +1,7 @@
 {
     "update_url": "https://clients2.google.com/service/update2/crx",
     "manifest_version": 3,
-    "name": "Warehouse Job Scheduler",
+    "name": "Shift Schedular",
     "version": "4.25.1",
     "description": "This extension books amazon warehouse shift automatically.",
     "icons": {
