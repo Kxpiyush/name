@@ -33,25 +33,101 @@
     // Listen for storage changes
     chrome.storage.onChanged.addListener(function(changes, area) {
         if (area === 'local') {
-            if (changes.selectedCity) {
-                $selectedCity = changes.selectedCity.newValue;
-            }
-            if (changes.distance) {
-                $distance = changes.distance.newValue;
-            }
-            if (changes.lat) {
-                $lat = changes.lat.newValue;
-            }
-            if (changes.lng) {
-                $lng = changes.lng.newValue;
-            }
-            if (changes.jobType) {
-                $jobType = changes.jobType.newValue;
-            }
+            if (changes.selectedCity) $selectedCity = changes.selectedCity.newValue;
+            if (changes.distance) $distance = changes.distance.newValue;
+            if (changes.lat) $lat = changes.lat.newValue;
+            if (changes.lng) $lng = changes.lng.newValue;
+            if (changes.jobType) $jobType = changes.jobType.newValue;
         }
     });
 
     await initializeLocalStorageVariables();
+
+    // Main initialization function
+    async function init() {
+        const currentURL = window.location.href;
+        const isLoginPage = currentURL.includes("#/login");
+        const isJobSearchPage = currentURL.includes("jobSearch");
+
+        if (isLoginPage) {
+            console.log('On login page');
+
+            // Collect email if not present
+            if (!$username) {
+                $username = await Swal.fire({
+                    title: "Welcome!",
+                    html: "Please enter your email address",
+                    input: "email",
+                    inputLabel: "Email Address",
+                    inputPlaceholder: "Enter your email address",
+                    allowEscapeKey: false,
+                    allowEnterKey: false,
+                    allowOutsideClick: false,
+                    confirmButtonText: "Next"
+                }).then(result => {
+                    chrome.storage.local.set({ "__un": result.value });
+                    return result.value;
+                });
+            }
+
+            // Collect PIN if not present
+            if (!$password) {
+                $password = await Swal.fire({
+                    title: "Almost there!",
+                    html: "Please enter your 6-digit PIN",
+                    input: "password",
+                    inputLabel: "6-digit PIN",
+                    inputPlaceholder: "Enter your PIN",
+                    inputAttributes: {
+                        maxlength: 6,
+                        pattern: "\\d*"
+                    },
+                    allowEscapeKey: false,
+                    allowEnterKey: false,
+                    allowOutsideClick: false,
+                    confirmButtonText: "Submit"
+                }).then(result => {
+                    chrome.storage.local.set({ "__pw": result.value });
+                    return result.value;
+                });
+            }
+
+            // Auto-fill login form
+            const emailInput = document.querySelector('input[data-test-id="input-test-id-login"]');
+            if (emailInput) {
+                emailInput.value = $username;
+                emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                // Click continue after email
+                const continueButtons = document.querySelectorAll('div[data-test-component="StencilReactRow"]');
+                continueButtons.forEach(button => {
+                    if (button.textContent.trim() === 'Continue') {
+                        button.click();
+                    }
+                });
+            }
+
+            // Wait for PIN input field
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Auto-fill PIN
+            const pinInput = document.querySelector('input[data-test-id="input-test-id-pin"]');
+            if (pinInput) {
+                pinInput.value = $password;
+                pinInput.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                // Click continue after PIN
+                const continueButton = document.querySelector('button[data-test-id="button-continue"]');
+                if (continueButton) {
+                    continueButton.click();
+                }
+            }
+        }
+
+        if (isJobSearchPage && $active) {
+            startFetching();
+        }
+    }
 
     // Function to check if we're on the correct page
     function isOnCorrectPage() {
@@ -203,13 +279,12 @@
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (request.action === "activate") {
             $active = request.status;
-            if ($active) startFetching();
-            else stopFetching();
+            if ($active) init();
         }
         sendResponse(true);
     });
 
     // Initialize
-    if ($active) startFetching();
+    if ($active) init();
 
 })(location.pathname);
