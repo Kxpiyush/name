@@ -1,65 +1,119 @@
-(async function() {
-    // Helper function to click elements
+(async function () {
+    console.log('Amazon Apply Bot started...');
+
     function clickElement(element) {
-        const clickEvent = new MouseEvent('click', {
-            view: window,
-            bubbles: true,
-            cancelable: true
-        });
-        element.dispatchEvent(clickEvent);
-        // Double-click attempt for reliability
-        setTimeout(() => {
+        if (!element) {
+            console.log('Element not found for clicking');
+            return false;
+        }
+        try {
             element.click();
-        }, 500);
+            element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+            element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+            element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            if (element.focus) element.focus();
+            return true;
+        } catch (error) {
+            console.error('Click error:', error);
+            return false;
+        }
     }
 
-    // Function to redirect back to job search after completion
-    function redirectToJobSearch() {
+    function redirectToSearch() {
+        console.log('Returning to search page in 5 seconds...');
         setTimeout(() => {
             window.location.href = 'https://hiring.amazon.ca/app#/jobSearch';
-        }, 10000);
+        }, 5000);
     }
 
-    // Main observer to handle the application process
+    let dropdownClicked = false;
+    let scheduleCardClicked = false;
+    let applyButtonClicked = false;
+    let createAppButtonClicked = false;
+
+    function getScheduleCardToClick(scheduleCards) {
+        if (scheduleCards.length >= 3) return scheduleCards[2];
+        if (scheduleCards.length >= 2) return scheduleCards[1];
+        if (scheduleCards.length >= 1) return scheduleCards[0];
+        return null;
+    }
+
     const observer = new MutationObserver(() => {
-        // Look for the Next button
-        const buttons = document.querySelectorAll('button');
-        buttons.forEach(button => {
-            const buttonText = button.querySelector('div[data-test-component="StencilReactRow"]')?.textContent?.trim();
-            
-            if (buttonText === 'Next') {
-                clickElement(button);
-                observer.disconnect();
-                
-                // After clicking Next, wait for Create Application button
-                setTimeout(() => {
-                    const createAppButton = [...document.querySelectorAll('button')]
-                        .find(btn => btn.querySelector('div[data-test-component="StencilReactRow"]')?.textContent?.trim() === 'Create Application');
-                    
-                    if (createAppButton) {
-                        clickElement(createAppButton);
-                        observer.disconnect();
-                        redirectToJobSearch();
-                    }
-                }, 2000);
+        try {
+            // Step 1: Click Dropdown (before schedule cards)
+            const dropdown = document.querySelector('[data-test-component="StencilReactRow"].jobDetailScheduleDropdown');
+            if (dropdown && !dropdownClicked) {
+                console.log('Clicking schedule dropdown...');
+                if (clickElement(dropdown)) {
+                    dropdownClicked = true;
+                }
                 return;
             }
-        });
 
-        // Direct check for Create Application button
-        const createAppButton = [...document.querySelectorAll('button')]
-            .find(btn => btn.querySelector('div[data-test-component="StencilReactRow"]')?.textContent?.trim() === 'Create Application');
-        
-        if (createAppButton) {
-            clickElement(createAppButton);
-            observer.disconnect();
-            redirectToJobSearch();
+            // Step 2: Click a schedule card
+            const scheduleCards = document.querySelectorAll('[data-test-component="StencilReactCard"][role="button"]');
+            if (scheduleCards.length > 0 && !scheduleCardClicked) {
+                const card = getScheduleCardToClick(scheduleCards);
+                if (card && clickElement(card)) {
+                    scheduleCardClicked = true;
+                    console.log('Schedule card clicked');
+                }
+                return;
+            }
+
+            // Step 3: Click Apply button
+            const applyBtn = document.querySelector('[data-test-id="jobDetailApplyButtonDesktop"]');
+            if (applyBtn && !applyButtonClicked) {
+                if (clickElement(applyBtn)) {
+                    applyButtonClicked = true;
+                    console.log('Apply button clicked');
+                }
+                return;
+            }
+
+            // Step 4: Click Create Application (in final step tab)
+            const createAppBtn = [...document.querySelectorAll('button')]
+                .find(btn => btn.textContent?.trim() === 'Create Application' ||
+                    btn.querySelector('div[data-test-component="StencilReactRow"]')?.textContent?.trim() === 'Create Application');
+
+            if (createAppBtn && !createAppButtonClicked) {
+                if (clickElement(createAppBtn)) {
+                    createAppButtonClicked = true;
+                    console.log('Create Application clicked');
+                    observer.disconnect();
+                    redirectToSearch();
+                }
+            }
+        } catch (err) {
+            console.error('Observer error:', err);
         }
     });
 
-    // Start observing the DOM for changes
     observer.observe(document.body, {
         childList: true,
-        subtree: true
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'disabled']
     });
+
+    // Initial trigger
+    setTimeout(() => {
+        const dropdown = document.querySelector('[data-test-component="StencilReactRow"].jobDetailScheduleDropdown');
+        if (dropdown && !dropdownClicked) clickElement(dropdown);
+
+        const scheduleCards = document.querySelectorAll('[data-test-component="StencilReactCard"][role="button"]');
+        if (scheduleCards.length > 0 && !scheduleCardClicked) {
+            const card = getScheduleCardToClick(scheduleCards);
+            if (card) clickElement(card);
+        }
+
+        const applyBtn = document.querySelector('[data-test-id="jobDetailApplyButtonDesktop"]');
+        if (applyBtn && !applyButtonClicked) clickElement(applyBtn);
+
+        const createAppBtn = [...document.querySelectorAll('button')]
+            .find(btn => btn.textContent?.trim() === 'Create Application');
+        if (createAppBtn && !createAppButtonClicked) clickElement(createAppBtn);
+    }, 1500);
+
+    console.log('Observer activated...');
 })();
